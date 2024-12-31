@@ -1,14 +1,17 @@
 # HEART-DISEASE-PREDICTIONS
 
 **Heart Disease Prediction Model**
+
 **Overview**
 This project demonstrates the use of a Logistic Regression Model for predicting the likelihood of heart disease based on various clinical parameters. The model uses data preprocessing, visualization, and statistical techniques to achieve accurate and interpretable predictions.
+
 **Features**
 •	Data preprocessing, including handling duplicates and converting variables.
 •	Data visualization to explore relationships and distributions.
 •	Logistic regression modeling and optimization.
 •	Model diagnostics and validation (e.g., multicollinearity, residual analysis).
 •	Performance evaluation using metrics such as ROC-AUC.
+
 **Tools and Libraries**
 •	R Programming Language
 •	Libraries:
@@ -18,11 +21,15 @@ o	dplyr
 o	caTools
 o	pROC
 o	performance
+
 **Workflow**
+
 **Step 1: Load Data**
 The dataset heart.csv was loaded and examined for structure, missing values, and duplicates.
 heart <- read_csv("path/to/heart.csv")
+
 **Step 2: Data Preprocessing**
+
 •	Removed duplicate rows.
 •	Converted categorical variables into factors for better interpretation and modeling.
 **Step 3: Data Exploration**
