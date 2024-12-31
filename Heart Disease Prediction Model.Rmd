@@ -1,0 +1,579 @@
+---
+title: "HEART DISEASE PREDICTIONS (LOGISTIC REGRESSION MODEL)"
+author: "Ajinkya"
+date: "2024-12-24"
+output: html_document
+---
+
+
+
+```{r}
+# Load the tidyverse package, which includes useful packages for data manipulation and visualization
+
+library(tidyverse)
+```
+
+
+# Step 1: Read the heart.csv file from the specified file path and store the data in the 'heart' data frame
+```{r}
+heart <- read_csv("C:/Users/Ajinkyaa/OneDrive/Stata to R/New folder/HEART DISEASE PREDICTION MODEL/heart.csv")
+```
+
+
+# Step 2: Data Exploration, to Understand data structure, identify problems (missing/duplicate values), and ensure data integrity
+```{r}
+view(heart) #Browse the all loaded data
+head(heart) #Viewing the First Few Rows
+glimpse(heart) #Summarizing Data Structure (Provides an overview of the dataset, including the number of rows and columns, data types (numeric, categorical, etc.), and a sample of the data in each column)
+anyNA(heart) #Checking for Missing Values
+duplicated(heart) %>% table() # Identifying Duplicate Rows (Counts rows that are exact duplicates)
+heart <- heart %>% distinct() #Removing Duplicates (Keeps only unique rows, removing duplicates)
+```
+
+
+# Step 3: Data Relationships, To calculate the correlation matrix between numerical variables in the 'heart' data frame and round it to 2 decimal places
+```{r}
+round(cor(heart), 2) #Checking Relationships with Correlation
+cr <- round(cor(heart), 2) #Store correlation matrix
+
+#Visualize your correlations (Creates a visual heatmap of the correlation matrix)
+#install.packages("ggcorrplot")
+library(ggcorrplot) 
+ggcorrplot(cr,title = "correlogram",lab_col = "black", 
+           lab = TRUE, legend.title = "Pearson Correlation", 
+           lab_size = 2, ggtheme = theme_classic(), 
+           outline.color = "black", 
+           colors = c("orange", "green", "blue"))
+```
+
+
+# Step 4: Data Distribution Visualizations
+```{r}
+# A. Visualize Numerical Features
+library(ggplot2)
+
+# Histogram for Age
+ggplot(heart, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  labs(title = "Distribution of Age", x = "Age", y = "Count") +
+  theme_minimal()
+
+# Boxplot for Cholesterol by Target
+ggplot(heart, aes(x = as.factor(target), y = chol, fill = as.factor(target))) +
+  geom_boxplot() +
+  labs(title = "Cholesterol Levels by Heart Disease", x = "Heart Disease (0 = No, 1 = Yes)", y = "Cholesterol") +
+  theme_minimal()
+
+# B. Bar Charts for Categorical Variables
+
+# Bar Chart for Chest Pain Type
+ggplot(heart, aes(x = as.factor(cp), fill = as.factor(target))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Chest Pain Types and Heart Disease", x = "Chest Pain Type", y = "Count") +
+  scale_fill_manual(values = c("blue", "red"), labels = c("No Disease", "Disease")) +
+  theme_minimal()
+
+# Gender Distribution
+ggplot(heart, aes(x = as.factor(sex), fill = as.factor(target))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Gender Distribution by Heart Disease", x = "Gender (0 = Female, 1 = Male)", y = "Count") +
+  scale_fill_manual(values = c("blue", "red"), labels = c("No Disease", "Disease")) +
+  theme_minimal()
+
+# C. Visualize Relationships Between Numerical Variables
+library(corrplot)
+
+# Compute Correlation Matrix
+numeric_data <- heart[, sapply(heart, is.numeric)]
+cor_matrix <- cor(numeric_data)
+
+# Plot Correlation Heatmap
+corrplot(cor_matrix, method = "color", type = "upper", 
+         addCoef.col = "black", tl.cex = 0.8, number.cex = 0.7,
+         main = "Correlation Matrix")
+```
+
+
+# Step 5: Data Transformation (Converting Variables into Factors)
+
+1. Some variables represent categories, not quantities. Treating them as numbers would mislead the model
+2. Conversion is important Logistic regression and other models can handle categorical data better when it is encoded as factors. This improves prediction accuracy and Factors make the data more understandable for humans and machines. For instance, sex = Female/Male is clearer than 0/1
+
+```{r}
+heart$sex <- as.factor(heart$sex)
+heart$cp <- as.factor(heart$cp) 
+heart$fbs <- as.factor(heart$fbs) 
+heart$restecg <- as.factor(heart$restecg) 
+heart$exang <- as.factor(heart$exang) 
+heart$slope <- as.factor(heart$slope) 
+heart$ca <- as.factor(heart$ca) 
+heart$thal <- as.factor(heart$thal) 
+heart$target <- as.factor(heart$target) 
+```
+
+# Step 6: Splitting Data (This step involves dividing the dataset into two parts: training data (80%) and testing data(20%))
+
+Why Split the Data?
+1. Training Data (80%): Used to train (build) the model by finding patterns in the data
+2. Testing Data (20%): Used to evaluate the model's accuracy and performance on new, unseen data
+3. Reason: This mimics real-world scenarios where the model is applied to data it hasn't seen before, preventing over fitting (when a model performs well on training data but poorly on new data)
+
+Why Not Use the Entire Data set for Training?
+1. Risk of Over fitting: The model might "memorize" the training data, performing exceptionally well on it but failing to generalize to new data
+2. Real-World Simulation: In real-life applications, you need the model to work on data it hasn’t seen before
+
+```{r}
+library(caTools) 
+set.seed(2) #to ensure reproducibility. Without this, every time you split the data, you'll get different results
+split <- sample.split(heart$target, SplitRatio = 0.8) 
+training <- subset(heart, split == TRUE) 
+testing <- subset(heart, split == FALSE) 
+```
+
+# Step 7: Building the model (This step involves using the training data to create a mathematical model that predicts the target variable (e.g., presence of heart  disease))
+
+1. Here we used logistic regression model because the target variable (target) is binary (0 = no heart disease, 1 = heart disease)
+
+```{r}
+model <- glm(target~., training, family = binomial) 
+summary(model)
+```
+
+Interpreting the Results
+1. Odds Ratio: For each unit increase in a variable, the odds of heart disease change by the factor 𝑒^𝛽 (exponent of the coefficient).
+1.1 Example: If cp2 has a coefficient of 2.85, then 𝑒^2.85≈ 17.3. This means cp2 increases the odds of heart disease 17-fold compared to the baseline.
+
+
+# Step 8: Model optimization (Model Optimization involves improving the logistic regression model by removing insignificant or redundant variables. This step ensures the model is efficient, interpretable, and performs better on unseen data) 
+
+Purpose of Model Optimization
+1. Simplify the Model: Reduce complexity by removing unnecessary predictors
+2. Improve Performance: Focus on significant predictors to enhance accuracy
+3. Lower AIC (Akaike Information Criterion): A lower AIC indicates a better model with an optimal balance of fit and complexity
+
+```{r}
+model <- glm(target~.-age, training, family = binomial) 
+summary(model)
+
+# Remove Insignificant Variables
+  # Remove one variable at a time, starting with the least significant
+  # Example: If age has a high p-value, it may not significantly predict heart disease in this dataset.
+  # Removing it reduces AIC, improving model efficiency
+
+      model <- glm(target~.-chol, training, family = binomial) 
+      summary(model)
+      #Chol should be removed since it reduces aic after removal.
+
+      model <- glm(target~.-fbs, training, family = binomial) 
+      summary(model)
+      #fbs should not be removed since it increases aic after removal 
+
+      model <- glm(target~.-restecg, training, family = binomial) 
+      summary(model)
+      #restecg should be removed since it reduces aic after removal 
+
+      model <- glm(target~.-exang, training, family = binomial) 
+      summary(model)
+      #exang should be removed since it reduces aic after removal 
+
+      model <- glm(target~.-oldpeak, training, family = binomial) 
+      summary(model)
+      #oldpeak should not be removed since it increases aic after removal 
+
+      model <- glm(target~.-slope, training, family = binomial) 
+      summary(model)
+      #slope should not be removed since it reduces aic after removal
+
+      model <- glm(target~.-thal, training, family = binomial) 
+      summary(model)
+      #Thal should not be removed since it increases aic after removal
+
+#Final model after optimization 
+model <- glm(target~.-age-chol-restecg-exang, training, family = binomial) 
+summary(model)
+```
+
+
+# Step 9: Model Assumptions and Diagnostics (step ensures the logistic regression model is appropriate, reliable, and performs as expected. It involves checking statistical assumptions, diagnosing potential problems, and validating the model's behavior)
+
+Purpose of Checking Assumptions: Logistic regression has specific assumptions that need to be validated for the model to give meaningful and accurate predictions. 
+
+Key assumptions include:
+1. Linearity of Log-Odds: The relationship between independent variables and the log-odds of the target variable is linear
+2. Independence of Residuals: Residuals (errors) are independent of each other
+3. No Multicollinearity: Independent variables are not excessively correlated
+4. Goodness-of-Fit: The model adequately fits the data
+
+```{r}
+# Install required libraries if not already installed
+#install.packages("performance")
+#install.packages("car")
+#install.packages("see")
+#install.packages("ggplot2")
+#install.packages("pROC")
+#install.packages("magrittr")
+#install.packages("ggeffects")
+
+# Load libraries for diagnostics
+library(performance)   # For model checks (e.g., residuals, multicollinearity)
+library(car)           # For Durbin-Watson test
+library(see)           # For enhanced plotting
+library(ggplot2)       # For visualization
+library(pROC)          # For ROC curve and AUC
+library(magrittr)  # For the pipe operator
+library(ggeffects) # 
+
+# A. Test of goodness of fit 
+# What to Check: Whether the model's predicted data aligns well with the observed data
+# Why It Matters: A poorly fitting model may fail to generalize well to new data.
+check_predictions(model)
+# Result: The predicted data fits the observed data, so the assumption is not violated
+
+# B. Check residuals (Linearity of Log-Odds)
+# What to Check: Whether the relationship between predictors and the log-odds (logit) is linear
+# Why It Matters: Non-linearity can lead to biased results. If the relationship is not linear, you might transform variables or include interaction terms
+check_residuals(model) %>% plot() # Assuming 'model' is your fitted model
+
+# C. Check for multicollinearity
+# What to Check: Ensure independent variables are not highly correlated with each other
+# Why It Matters: Multicollinearity can confuse the model about which variable is driving the prediction
+check_collinearity(model)
+# Interpretation:
+  # Variance Inflation Factor (VIF) values > 5 indicate problematic multicollinearity.
+      # Example: In the file, VIF values are low (all < 2), suggesting no multicollinearity issues
+
+# D. Test for autocorrelation (Independence of Residuals)
+  # What to Check: Ensure residuals (differences between observed and predicted values) are independent
+durbinWatsonTest(model)
+# Interpretation:
+  # A p-value > 0.05 indicates no significant autocorrelation, meaning residuals are independent.
+      #Example: In the file, residuals are independent (p = 0.94)
+  
+  # Plot the autocorrelation function (ACF)
+  residuals_model <- residuals(model)
+  acf(residuals_model, main = "ACF of Model Residuals")
+
+# E. Outliers
+# What to Check: Identify data points that significantly deviate from the model's expectations
+outlierTest(model)  
+# Why It Matters: Outliers can distort model predictions, making them less reliable.
+# Result: No significant outliers were detected
+
+    # Boxplot of residuals to detect outliers
+    residuals_model <- residuals(model)
+    boxplot(residuals_model, main = "Boxplot of Model Residuals", col = "lightblue")
+  
+# F. Generate ROC curve
+# Evaluates the model's ability to distinguish between classes (e.g., heart disease vs. no heart disease)
+  roc(target ~ fitted.values(model), data = training, plot = TRUE, legacy.axes = TRUE)
+# Result: The data reports an AUC of 0.955, indicating excellent performance
+
+# G. Cook's Distance: This diagnostic tool helps identify influential points in your data. If a point has a large Cook's Distance, it indicates that the point has a significant effect on the model’s parameters.
+# plot(model, which = 4): This generates a plot of Cook's Distance for the fitted model (model), which can be useful for detecting influential observations.
+plot(model, which = 4)
+# How to Interpret the Plot:
+# The plot will display the Cook’s Distance for each observation.
+# Points that are far away from the rest of the data (i.e., have large Cook’s Distance values) are considered influential, and you may want to investigate those points further.
+```
+
+
+# Step 10: Predictions
+1. predict() estimates the probability of heart disease for the test set.
+2. Why: Predictions are categorized into risk levels (e.g., High Risk if probability > 0.6)
+
+```{r}
+ggeffect(model)
+
+ggpredict(model, terms = "sex")
+```
+
+
+# Step 11: Model Evaluation
+1. The Model Evaluation step assesses the performance of the model using various metrics. These metrics provide insights into how well the model predicts outcomes and whether it generalizes well to unseen data
+```{r}
+# A. Confusion Matrix
+# What it is: A table comparing predicted values to actual values
+predictions <- predict(model, testing, type = "response") # Generate predicted probabilities
+classified <- ifelse(predictions > 0.5, 1, 0) # Convert probabilities to binary predictions
+confusion_matrix <- table(Actual = testing$target, Predicted = classified) # Confusion matrix
+print(confusion_matrix)
+
+# Interpretation:
+  # True Positives (TP): Model correctly predicts 1 (e.g., 28 cases).
+  # True Negatives (TN): Model correctly predicts 0 (e.g., 22 cases).
+  # False Positives (FP): Model incorrectly predicts 1 when it’s actually 0 (e.g., 6 cases).
+  # False Negatives (FN): Model incorrectly predicts 0 when it’s actually 1 (e.g., 5 cases).
+
+# B. Accuracy
+# The accuracy of a model measures the proportion of correct predictions (both positives and negatives) out of all predictions made
+# Define confusion matrix values
+TP <- 28
+TN <- 22
+FP <- 6
+FN <- 5
+
+# Calculate accuracy
+accuracy <- (TP + TN) / (TP + TN + FP + FN) * 100
+print(accuracy)
+# Interpretation
+  # An accuracy of 81.97% means that the model correctly predicts the target variable for approximately 82 out of 100 patients.
+  # While accuracy is a good general measure, it may not be sufficient in imbalanced datasets. For example, if the dataset has many more patients without heart disease than with it, the model might achieve high accuracy just by predicting "no heart disease" for most cases
+
+# C. Recall (Sensitivity)
+# Recall (Sensitivity) measures the model's ability to correctly identify positive cases (e.g., patients with heart disease). It answers the question: Of all the actual positives, how many did the model correctly predict as positive?
+# Define confusion matrix values
+TP <- 28
+FN <- 5
+# Calculate recall
+recall <- (TP) / (TP + FN) * 100
+print(recall)
+# Interpretation
+  # A recall of 84.85% means that the model correctly identifies about 85 out of 100 patients who actually have heart disease.
+  # High recall is especially important in situations where missing positive cases is costly, such as diagnosing diseases
+
+# D. Precision
+# Precision measures the model's ability to correctly identify positive predictions. It answers the question: Of all the cases the model predicted as positive, how many were actually positive?
+# Define confusion matrix values
+TP <- 28
+FP <- 6
+# Calculate precision
+precision <- (TP) / (TP + FP) * 100
+print(precision)
+# Interpretation
+  # A precision of 82.35% means that when the model predicts heart disease (positive), about 82 out of 100 predictions are correct.
+  # High precision is important in cases where false positives (incorrectly predicting someone has heart disease) are costly, such as in resource-intensive follow-up tests
+
+# E. F1-Score
+# The F1-Score is a metric that balances Precision and Recall. It provides a single score to evaluate a model’s performance when there is a trade-off between these two metrics. It is especially useful for imbalanced datasets
+# Calculate F1-Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+print(f1_score)
+# Interpretation
+  # The F1-Score of 83.58% indicates a good balance between Precision and Recall.
+  # It means the model is effective in predicting both actual positives (Recall) and accurate positives (Precision)
+
+# F. ROC (Receiver Operating Characteristic) Curve and AUC (Area Under the Curve)
+# The ROC (Receiver Operating Characteristic) Curve and AUC (Area Under the Curve) are metrics used to evaluate the performance of a classification model. They measure how well the model distinguishes between the two classes (e.g., heart disease present vs. not present).
+roc_curve <- roc(testing$target, predictions)
+# Plot the ROC curve
+plot(roc_curve, legacy.axes = TRUE, col = "blue", main = "ROC Curve", lwd = 2)
+
+# Calculate the AUC
+auc_value <- auc(roc_curve)
+print(auc_value)
+# Interpretation
+  # AUC = 0.8723: The model has excellent discriminatory ability, meaning it can distinguish well between patients with and without heart disease.
+  # ROC Curve: A curve that rises steeply toward the top-left corner indicates a strong classifier.
+
+# G. Calculate MCC
+# The Matthews Correlation Coefficient (MCC) is a balanced metric for binary classification, especially useful for datasets with imbalanced classes. It considers true and false positives and negatives, providing a correlation value between the predicted and actual classifications
+mcc <- ((TP * TN) - (FP * FN)) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+print(mcc)
+
+# Interpretation
+  # MCC = 0.637: The model has good predictive ability.
+  # MCC ranges from -1 to 1:
+      # +1: Perfect prediction.
+      # 0: No better than random guessing.
+      # -1: Total disagreement between predictions and actual values.
+```
+
+
+# Step 12: Visualize model predictions 
+```{r}
+# A. Overall Incidence of Heart Disease
+theme_set(theme_bw()+theme(title = element_text
+                           (face = "bold", 
+                             colour = "steelblue"))) 
+ggplot(heart, aes(target, fill = target))+ 
+  geom_bar(width = 0.7)+ 
+  labs(title = "Incidence of Heart Disease", 
+       y = "Frequency", 
+       x = "Disease Outcome")
+
+# B. Incidence of Heart Disease based on Sex
+ggplot(training, aes(sex, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Sex", 
+       y = "Frequency", 
+       x = "Sex", 
+       caption = "Africa CDC(2024)")
+
+# C. Incidence of Heart Disease based on Chest pain type
+ggplot(training, aes(cp, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Chest pain type", 
+       y = "Frequency", 
+       x = "Chest Pain Type", 
+       caption = "Africa CDC(2024)")
+
+# D. Incidence of Heart Disease based on Resting Blood Pressure
+ggplot(training, aes(trestbps, fill = target))+ 
+  geom_histogram(binwidth = 9, position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Resting Blood Pressure", 
+       y = "Frequency", 
+       x = "Resting Blood Pressure", 
+       caption = "Africa CDC(2024)")
+
+# E. Incidence of Heart Disease based on Fasting blood sugar
+ggplot(training, aes(fbs, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Fasting blood sugar", 
+       y = "Frequency", 
+       x = "Fasting blood sugar", 
+       caption = "Africa CDC(2024)")
+
+table(heart$target, heart$fbs)
+
+# F. Incidence of Heart Disease based on Heart rate
+ggplot(training, aes(thalach, fill = target))+ 
+  geom_histogram(binwidth = 10, position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Heart rate", 
+       y = "Frequency", 
+       x = "Maximum heart rate", 
+       caption = "Africa CDC(2024)")
+
+# G. Incidence of Heart Disease based on ST Depression
+ggplot(training, aes(oldpeak, fill = target))+ 
+  geom_histogram(binwidth = 1, position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on ST Depression", 
+       y = "Frequency", 
+       x = "ST Depression induced dy Excercise", 
+       caption = "Africa CDC(2024)")
+
+# H. Incidence of Heart Disease based on Slope of Peak exercise
+ggplot(training, aes(slope, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Slope of Peak exercise", 
+       y = "Frequency", 
+       x = "Slope of the peak exercise", 
+       caption = "Africa CDC(2024)")
+
+
+table(heart$target, heart$slope)
+
+# I. Incidence of Heart Disease based on Vessels colored by floursopy
+ggplot(training, aes(ca, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on Vessels colored by floursopy", 
+       y = "Frequency", 
+       x = "Number of major vessels", 
+       caption = "Africa CDC(2024)")
+
+table(heart$target, heart$ca)
+
+# J. Incidence of Heart Disease based on thal
+ggplot(training, aes(thal, fill = target))+ 
+  geom_bar(position = "dodge")+ 
+  labs(title = "Incidence of Heart Disease based on thal", 
+       y = "Frequency", 
+       caption = "Africa CDC(2024)")
+```
+
+
+# Step 13: Check Model Performance
+```{r}
+# Produce model equation 
+#install.packages("equatiomatic")
+library(equatiomatic)
+extract_eq(model)
+
+#How well our model fits the data 
+library(performance) 
+performance(model)
+
+library(effectsize) 
+interpret_r2(0.665)
+```
+
+
+# Step 14: Visualize the distribution of risk categories
+```{r}
+#Generate model probabilities 
+probs <- predict(model, testing, type = "response")
+#Data frame with actual target and predicted probabilities 
+scores <- data.frame( 
+  Actual = testing$target, 
+  Predicted_Probability = probs 
+  )
+
+# Classify the scores into risk categories 
+# Define risk categories based on probability thresholds
+library(dplyr)
+scores <- scores %>% 
+  mutate(
+    Risk_Category = case_when(
+      Predicted_Probability < 0.3 ~ "Low Risk", 
+      Predicted_Probability >= 0.3 & Predicted_Probability < 0.6 ~ "Medium Risk",
+      Predicted_Probability >= 0.6 ~ "High Risk" 
+      ) 
+    )
+
+# Visualize the distribution of risk categories 
+library(ggplot2) 
+ggplot(scores, aes(x = Predicted_Probability, fill = Risk_Category)) + 
+  geom_histogram(binwidth = 0.05, color = "black") + 
+  labs(title = "Distribution of Predicted Probability Scores", 
+       x = "Predicted Probability", 
+       y = "Frequency")
+
+# Review the first few rows of the score data 
+head(scores, 30)
+print(scores)
+```
+
+
+# Interpretation:
+
+A.  Confusion Matrix
+1. True Positives (TP = 29): These are cases where the model correctly predicted the presence of heart disease.
+2. True Negatives (TN = 21): These are cases where the model correctly predicted no heart disease.
+3. False Positives (FP = 7): These are cases where the model incorrectly predicted heart disease when it wasn’t present.
+4. False Negatives (FN = 4): These are cases where the model failed to detect heart disease.
+
+Key Insights:
+1. The model has good predictive power, with most predictions being correct.
+2. However, there are 7 false positives and 4 false negatives, which may require attention depending on the application.
+
+B. Accuracy 
+1. The model correctly predicts about 82% of cases, which indicates it performs well overall.
+2. However, accuracy alone may not be sufficient if the cost of false positives or false negatives is high.
+
+C. Recall (Sensitivity)
+1. The model identifies 88% of actual heart disease cases (true positives).
+2. High recall is critical for medical diagnostics to minimize the number of false negatives (missed cases)
+
+D. Precision
+1. When the model predicts heart disease, it is correct 81% of the time.
+2. Lower precision (compared to recall) suggests the model occasionally flags non-disease cases as heart disease (false positives)
+
+E. F1-Score
+1. The F1-Score balances Precision and Recall.
+2. An F1-Score of 84% indicates the model has a good trade-off between catching most cases (high recall) and being accurate in its predictions (precision).
+
+F. ROC Curve and AUC
+1. AUC = 0.956: The model has excellent discriminatory power.
+1.1 A value close to 1 means the model can reliably distinguish between patients with and without heart disease.
+
+2. Interpretation of ROC Curve:
+2.1 The curve rising steeply towards the top-left corner indicates high sensitivity and specificity for various thresholds.
+2.2 Adjusting thresholds can optimize for precision or recall based on application needs
+
+G. Risk Categorization
+1. Categorizing patients into risk levels based on predicted probabilities:
+2. Low Risk (< 30%): Patients unlikely to have heart disease.
+3. Medium Risk (30–60%): Patients with a moderate likelihood of heart disease.
+4. High Risk (> 60%): Patients with a high likelihood of heart disease.
+
+Interpretation:
+1. This segmentation helps prioritize patients for further tests or interventions.
+2. For instance, "High Risk" patients might need immediate attention, while "Low Risk" patients can be monitored.
+
+H. Key Takeaways
+1. The model performs well overall, as shown by high accuracy, recall, and AUC.
+2. Strength: High recall ensures most patients with heart disease are identified.
+3. Limitation: Some false positives (FP) and false negatives (FN) remain, which can have implications in a clinical setting
+
+
+
+
