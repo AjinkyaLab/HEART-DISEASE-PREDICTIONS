@@ -1,1 +1,2 @@
 # HEART-DISEASE-PREDICTIONS
+Heart Disease Prediction: Developed a logistic regression model for heart disease prediction using R. Conducted data preprocessing, exploration, and visualization. Optimized the model by removing insignificant variables and improved efficiency (AIC). Achieved an AUC of 0.955, indicating excellent model performance. Used visualizations like heatmaps, histograms, and boxplots.
